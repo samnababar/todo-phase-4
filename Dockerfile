@@ -1,38 +1,41 @@
-# Stage 1: Builder
-FROM python:3.11-slim AS builder
+# Stage 1: Dependencies
+FROM node:18-alpine AS deps
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+
+# Stage 2: Builder
+FROM node:18-alpine AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NEXT_PUBLIC_API_URL=/backend
+ENV BACKEND_INTERNAL_URL=http://backend-service:8000
+RUN npm run build
+
+# Stage 3: Runner
+FROM node:18-alpine AS runner
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y \
-    gcc \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV BACKEND_INTERNAL_URL=http://backend-service:8000
 
-COPY requirements.txt .
-RUN pip install --user --no-cache-dir -r requirements.txt
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
 
-# Stage 2: Runner
-FROM python:3.11-slim
-WORKDIR /app
+COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-RUN apt-get update && apt-get install -y \
-    libpq-dev \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+USER nextjs
 
-RUN adduser --disabled-password --gecos '' appuser && \
-    chown -R appuser:appuser /app
+EXPOSE 3000
 
-COPY --from=builder /root/.local /home/appuser/.local
-RUN chown -R appuser:appuser /home/appuser/.local
-ENV PATH=/home/appuser/.local/bin:$PATH
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
 
-COPY --chown=appuser:appuser . .
-
-USER appuser
-
-EXPOSE 8000
-
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:8000/health || exit 1
-
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["node", "server.js"]

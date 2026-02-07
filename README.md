@@ -1,293 +1,189 @@
-# ObsidianList Backend API
+# ObsidianList Frontend
 
-FastAPI backend with SQLModel, JWT authentication, user isolation, and AI-powered task assistant.
+Premium dark-themed task management app built with Next.js and Tailwind CSS.
 
 ## Features
 
-- **FastAPI** - Modern async Python web framework
-- **SQLModel** - Type-safe ORM combining SQLAlchemy and Pydantic
-- **JWT Authentication** - Secure token-based auth with httpOnly cookies
-- **User Isolation** - Every query filtered by authenticated user
-- **AI Task Assistant** - Natural language task parsing with OpenAI
-- **Rate Limiting** - 10 req/min for AI endpoints
-- **Neon PostgreSQL** - Serverless database with connection pooling
-- **Alembic Migrations** - Database schema version control
-- **Security Headers** - CORS, XSS protection, HSTS
+- **Landing Page**: Hero section with gradient text, How It Works cards, CTA, specs, footer
+- **Dashboard**: Task management with stats, filters, search, and sort
+- **Dark Theme**: Pure obsidian black (#000000) with violet accents (#8B5CF6)
+- **Responsive**: Mobile-first design with smooth animations
+- **Type-Safe**: Full TypeScript support
 
 ## Tech Stack
 
-- Python 3.10+
-- FastAPI 0.109.0
-- SQLModel 0.0.14
-- PostgreSQL (Neon)
-- OpenAI API
-- Passlib (bcrypt)
-- Python-JOSE (JWT)
+- **Framework**: Next.js 14 (App Router)
+- **Styling**: Tailwind CSS with custom ObsidianList theme
+- **Language**: TypeScript
+- **State**: React useState + useMemo
+- **API Client**: Custom fetch wrapper with error handling
 
-## Prerequisites
+## Getting Started
 
-- Python 3.10 or higher
-- PostgreSQL database (Neon recommended)
-- OpenAI API key
+### Prerequisites
 
-## Setup
+- Node.js 18+
+- npm or yarn
 
-### 1. Install Dependencies
+### Installation
 
 ```bash
-cd backend
-pip install -r requirements.txt
+cd frontend
+npm install
 ```
 
-### 2. Environment Variables
-
-Copy `.env.example` to `.env` and fill in your values:
+### Environment Setup
 
 ```bash
-cp .env.example .env
+cp .env.example .env.local
 ```
 
-Required variables:
-
+Edit `.env.local`:
 ```env
-DATABASE_URL=postgresql://user:password@host:port/database
-BETTER_AUTH_SECRET=your-secret-key-min-32-chars
-OPENAI_API_KEY=sk-your-openai-api-key
-CORS_ORIGINS=http://localhost:3000,https://your-app.vercel.app
+NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
-**Generate secret key:**
-```bash
-openssl rand -base64 32
-```
-
-### 3. Run Database Migrations
+### Development
 
 ```bash
-make migrate
-# or: alembic upgrade head
+npm run dev
 ```
 
-### 4. Start Development Server
+App runs at `http://localhost:3000`
+
+### Production Build
 
 ```bash
-make dev
-# or: uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-API will be available at `http://localhost:8000`
-
-## API Documentation
-
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
-- **Health Check**: http://localhost:8000/health
-
-## API Endpoints
-
-### Authentication (`/auth`)
-
-- `POST /auth/signup` - Register new user
-- `POST /auth/login` - Login and get JWT token
-- `POST /auth/logout` - Logout (clear cookie)
-- `GET /auth/me` - Get current user info
-
-### Tasks (`/api/tasks`)
-
-- `GET /api/tasks` - List all user's tasks
-- `POST /api/tasks` - Create new task
-- `GET /api/tasks/{id}` - Get single task
-- `PUT /api/tasks/{id}` - Update task
-- `DELETE /api/tasks/{id}` - Delete task
-- `PATCH /api/tasks/{id}/complete` - Toggle completion
-
-### AI Assistant (`/api/ai-assist`)
-
-- `POST /api/ai-assist` - Create task from natural language (rate limited: 10/min)
-
-## Database Schema
-
-### User Model
-
-```python
-id: int (PK)
-username: str (unique, indexed)
-hashed_password: str
-created_at: datetime
-tasks: Relationship[Task]
-```
-
-### Task Model
-
-```python
-id: int (PK)
-title: str (max 200 chars)
-description: str | None (max 2000 chars)
-completed: bool
-priority: "low" | "medium" | "high"
-completion_date: date | None
-tags: str | None (JSON array)
-user_id: int (FK → users.id, indexed)
-created_at: datetime
-updated_at: datetime
-owner: Relationship[User]
-```
-
-## Security
-
-### User Isolation
-
-All task endpoints enforce user isolation:
-
-1. JWT token verified via `get_current_user` dependency
-2. `user_id` extracted from token (NEVER from request body)
-3. Every query filtered by `current_user_id`
-4. Ownership verification for single-task operations (returns 403 if not owned)
-
-### Authentication Flow
-
-1. User signs up or logs in
-2. Server generates JWT with `user_id` claim and 24-hour expiration
-3. Token stored in httpOnly cookie (XSS protection)
-4. Every protected endpoint verifies token and extracts `user_id`
-5. Invalid/expired tokens return 401
-
-### Security Headers
-
-- `X-Content-Type-Options: nosniff`
-- `X-Frame-Options: DENY`
-- `X-XSS-Protection: 1; mode=block`
-- `Strict-Transport-Security: max-age=31536000`
-
-## AI Task Assistant
-
-Uses OpenAI GPT-4 to parse natural language messages into structured task fields:
-
-**Input:**
-```json
-{
-  "message": "Remind me to buy groceries tomorrow, high priority"
-}
-```
-
-**Output:**
-```json
-{
-  "task_id": 1,
-  "title": "Buy groceries",
-  "description": "Purchase groceries for the week",
-  "priority": "high",
-  "tags": ["shopping", "errands"],
-  "ai_interpretation": "Created a high-priority shopping task"
-}
-```
-
-**Rate Limit:** 10 requests per minute per IP
-
-## Development
-
-### Run Tests
-
-```bash
-make test
-# or: pytest --cov=app --cov-report=term-missing
-```
-
-### Create Migration
-
-```bash
-make migration MSG="Add new field to tasks"
-# or: alembic revision --autogenerate -m "Add new field to tasks"
-```
-
-### Apply Migrations
-
-```bash
-make migrate
-# or: alembic upgrade head
-```
-
-### Linting
-
-```bash
-make lint
-# or: ruff check app/ --fix && black app/
-```
-
-### Clean Cache
-
-```bash
-make clean
+npm run build
+npm start
 ```
 
 ## Project Structure
 
 ```
-backend/
-├── alembic/              # Database migrations
-│   ├── versions/         # Migration scripts
-│   ├── env.py           # Alembic environment
-│   └── script.py.mako   # Migration template
+frontend/
 ├── app/
-│   ├── config/          # Database and settings config
-│   ├── dependencies/    # FastAPI dependencies (auth, db)
-│   ├── models/          # SQLModel database models
-│   ├── routers/         # API route handlers
-│   ├── schemas/         # Pydantic request/response schemas
-│   ├── services/        # Business logic (auth, tasks, AI)
-│   └── main.py          # FastAPI app initialization
-├── tests/               # Test suite
-├── .env.example         # Environment variables template
-├── alembic.ini          # Alembic configuration
-├── Makefile             # Development commands
-├── README.md            # This file
-└── requirements.txt     # Python dependencies
+│   ├── globals.css         # Global styles + ObsidianList theme
+│   ├── layout.tsx          # Root layout with fonts
+│   ├── page.tsx            # Landing page
+│   ├── login/page.tsx      # Login page
+│   ├── signup/page.tsx     # Signup page
+│   └── dashboard/page.tsx  # Protected dashboard
+├── components/
+│   ├── landing/            # Landing page components
+│   │   ├── Hero.tsx        # Hero section with gradient text
+│   │   ├── HowItWorks.tsx  # 4-step process cards
+│   │   ├── SpecsSection.tsx # Features + mockup
+│   │   ├── CTASection.tsx  # Call to action
+│   │   └── Footer.tsx      # Site footer
+│   └── dashboard/          # Dashboard components
+│       ├── Sidebar.tsx     # Navigation + logout
+│       ├── TaskStats.tsx   # 3 stat cards
+│       ├── TaskFilters.tsx # Search/filter/sort
+│       ├── TaskList.tsx    # Task container
+│       ├── TaskCard.tsx    # Individual task
+│       ├── AddTaskModal.tsx # Add/edit form
+│       └── EmptyState.tsx  # No tasks message
+├── lib/
+│   └── api.ts              # API client
+├── middleware.ts           # Route protection
+├── tailwind.config.ts      # Custom theme
+├── package.json
+└── tsconfig.json
+```
+
+## Theme Colors
+
+| Color | Hex | Usage |
+|-------|-----|-------|
+| Black | #000000 | Base background |
+| Gray 900 | #0A0A0A | Card backgrounds |
+| Gray 700 | #2A2A2A | Borders |
+| Violet Primary | #8B5CF6 | Primary accent |
+| Violet Light | #A78BFA | Secondary accent |
+| Success | #10B981 | Completed/Low priority |
+| Warning | #F59E0B | Medium priority |
+| Danger | #EF4444 | High priority |
+
+## Components
+
+### Landing Page
+
+- **Hero**: Gradient "ObsidianList" text, cyberpunk grid background, CTA buttons
+- **HowItWorks**: 4 cards explaining the AI-powered workflow
+- **SpecsSection**: Feature list + dashboard mockup
+- **CTASection**: Large violet button with trust indicators
+- **Footer**: Navigation links + social icons
+
+### Dashboard
+
+- **Sidebar**: Collapsible navigation with user info and logout
+- **TaskStats**: 3 cards showing pending/completed/high-priority counts
+- **TaskFilters**: Search bar, priority/status dropdowns, sort options, tag pills
+- **TaskList**: Grid of TaskCards with empty state
+- **TaskCard**: Task display with checkbox, priority badge, tags, edit/delete
+- **AddTaskModal**: Form for creating/editing tasks with all fields
+
+## API Integration
+
+The frontend connects to the FastAPI backend via `/lib/api.ts`:
+
+```typescript
+// Auth
+authApi.signup(username, password)
+authApi.login(username, password)
+authApi.logout()
+authApi.me()
+
+// Tasks
+tasksApi.getAll()
+tasksApi.create({ title, description, priority, tags })
+tasksApi.update(id, { ... })
+tasksApi.delete(id)
+tasksApi.toggleComplete(id)
+
+// AI
+aiApi.createFromMessage(message)
+```
+
+## Customization
+
+### Adding New Colors
+
+Edit `tailwind.config.ts`:
+```typescript
+colors: {
+  obsidian: {
+    // Add new colors here
+    accent: "#YOUR_COLOR",
+  }
+}
+```
+
+### Modifying Animations
+
+Edit `app/globals.css`:
+```css
+@keyframes yourAnimation {
+  /* ... */
+}
 ```
 
 ## Deployment
 
-### Environment Setup
+### Vercel (Recommended)
 
-1. Set environment variables in production (Vercel, Railway, etc.)
-2. Set `secure=True` in cookie settings (HTTPS only)
-3. Disable SQL echo in database config
-4. Use production DATABASE_URL from Neon
+1. Push to GitHub
+2. Import project in Vercel
+3. Set `NEXT_PUBLIC_API_URL` environment variable
+4. Deploy
 
-### Database Migrations
-
-Always run migrations before deploying:
+### Manual
 
 ```bash
-alembic upgrade head
+npm run build
+npm start
 ```
-
-### CORS Configuration
-
-Update `CORS_ORIGINS` environment variable with production URLs:
-
-```env
-CORS_ORIGINS=https://your-frontend.vercel.app,https://api.your-domain.com
-```
-
-## Troubleshooting
-
-### Database Connection Issues
-
-- Verify `DATABASE_URL` format: `postgresql://user:password@host:port/database`
-- Check Neon database is running and accessible
-- Ensure connection pooling settings match your plan limits
-
-### JWT Token Issues
-
-- Verify `BETTER_AUTH_SECRET` is at least 32 characters
-- Check token expiration (24 hours by default)
-- Ensure cookie settings match your environment (secure flag for HTTPS)
-
-### AI Assistant Failures
-
-- Verify `OPENAI_API_KEY` is valid
-- Check OpenAI API quota and rate limits
-- Review logs for detailed error messages
 
 ## License
 

@@ -1,49 +1,54 @@
-# Backend Guidelines
+# Frontend Guidelines
 
 ## Overview
-FastAPI backend for AI-Powered Todo Chatbot with MCP tools integration.
+Next.js 14+ frontend for AI-Powered Todo Chatbot with dark premium UI.
 
 ## Tech Stack
-- **Framework**: FastAPI 0.109+
-- **ORM**: SQLModel 0.0.14+
-- **Database**: Neon Serverless PostgreSQL
-- **Auth**: JWT (HS256, 7-day expiry) + bcrypt
-- **AI**: OpenAI Agents SDK + MCP Server
-- **Email**: Resend API
-- **Scheduler**: APScheduler
+- **Framework**: Next.js 14+ with App Router
+- **Styling**: Tailwind CSS 3.4+
+- **Animations**: Framer Motion 11+
+- **Markdown**: react-markdown 9+
+- **Language**: TypeScript 5.3+
 
 ## Project Structure
 ```
-backend/
-├── alembic/versions/    # Database migrations
-├── models/              # SQLModel entities
-├── routes/              # API endpoints
-├── services/            # Business logic
-├── mcp_server/          # MCP tools server
-├── middleware/          # Auth middleware
-├── utils/               # Helpers (JWT, validation)
-├── templates/           # Email templates
-├── main.py              # FastAPI app entry
-├── db.py                # Database connection
-└── config.py            # Environment config
+frontend/
+├── app/
+│   ├── (auth)/          # Auth pages (login, signup)
+│   ├── dashboard/       # Protected dashboard pages
+│   └── page.tsx         # Landing page
+├── components/
+│   ├── landing/         # Landing page components
+│   ├── layout/          # Sidebar, navigation
+│   ├── dashboard/       # Stats, task list
+│   ├── tasks/           # Task cards, forms
+│   ├── chat/            # Chat interface
+│   └── animations/      # Reusable animations
+├── lib/
+│   ├── api.ts           # API client with JWT
+│   └── auth.ts          # Auth helpers
+├── middleware.ts        # Route protection
+└── public/images/       # Optimized images
 ```
 
-## Conventions
-- Use async/await for all database operations
-- All routes must verify JWT via `get_current_user` dependency
-- MCP tools verify ownership before operations
-- Use Pydantic models for request/response validation
-- Follow SQLModel patterns for queries
+## Design System
+- **Background**: #000000 (pure black)
+- **Primary**: #7c3aed (purple-600)
+- **Secondary**: #8b5cf6 (purple-500)
+- **Text Primary**: #ffffff
+- **Text Secondary**: #a1a1aa (zinc-400)
+- **Surface**: #18181b (zinc-900)
+- **Border**: #27272a (zinc-800)
 
-## Environment Variables
-- `DATABASE_URL`: Neon PostgreSQL connection string
-- `JWT_SECRET`: Secret key for JWT signing
-- `OPENAI_API_KEY`: OpenAI API key
-- `RESEND_API_KEY`: Resend email API key
-- `ALLOWED_ORIGINS`: CORS allowed origins (comma-separated)
+## Conventions
+- Use 'use client' only when needed (interactivity, hooks)
+- Prefer Server Components by default
+- JWT stored in localStorage
+- All API calls go through lib/api.ts
+- Animations use Framer Motion variants
 
 ## Running Locally
 ```bash
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
+npm install
+npm run dev
 ```
