@@ -2,15 +2,14 @@ apiVersion: v1
 kind: Service
 metadata:
   name: backend-service
-  namespace: {{ .Values.namespace }}
+  namespace: todo-chatbot
   labels:
-    {{- include "todo-chatbot.labels" . | nindent 4 }}
     app: backend
 spec:
-  type: {{ .Values.service.backend.type }}
+  type: ClusterIP
   ports:
-    - port: {{ .Values.service.backend.port }}
-      targetPort: {{ .Values.service.backend.port }}
+    - port: 8000
+      targetPort: 8000
       protocol: TCP
       name: http
   selector:

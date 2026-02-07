@@ -1,109 +1,157 @@
-"""FastAPI application entry point."""
+"""Console Todo Application - Phase I
 
-from contextlib import asynccontextmanager
+Constitution Principle I: Spec-driven development only.
+Constitution Principle III: All business logic delegated to skills.
 
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
+Main loop orchestrates user interaction - NO business logic here.
+"""
 
-from config import settings
-from db import create_db_and_tables
-from services.reminder_checker import reminder_checker
-
-# Create rate limiter
-limiter = Limiter(key_func=get_remote_address)
+from src.cli_parser import CLIParser
+from src.constants import Messages
+from src.display_formatter import DisplayFormatter
+from src.error_validator import ErrorValidator
+from src.todo_manager import TodoManager
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Application lifespan events."""
-    # Startup
-    print(f"Starting {settings.APP_NAME}...")
-    # Note: Use Alembic migrations in production
-    # create_db_and_tables()
+def main() -> None:
+    """CLI loop orchestration - NO BUSINESS LOGIC.
 
-    # Start reminder checker if Resend API key is configured
-    if settings.RESEND_API_KEY:
-        reminder_checker.start()
-        print("Reminder checker scheduler started")
-    else:
-        print("Reminder checker disabled (RESEND_API_KEY not configured)")
-
-    yield
-
-    # Shutdown
-    print(f"Shutting down {settings.APP_NAME}...")
-    reminder_checker.stop()
-
-
-# Create FastAPI app
-app = FastAPI(
-    title=settings.APP_NAME,
-    description="AI-Powered Todo Chatbot with natural language task management",
-    version="1.0.0",
-    lifespan=lifespan,
-)
-
-# Add rate limiter to app state
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-
-# Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.allowed_origins_list,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
-# Health check endpoint
-@app.get("/health")
-async def health_check():
-    """Health check endpoint."""
-    return {"status": "healthy", "app": settings.APP_NAME}
-
-
-# Manual reminder check endpoint (for external cron services)
-@app.post("/api/reminders/check")
-async def trigger_reminder_check():
+    Flow per plan.md:
+    1. Initialize skill wrapper classes
+    2. Show welcome message
+    3. Loop:
+       a. Prompt for input
+       b. Parse via CLIParser
+       c. Route to command handler
+       d. Catch errors, format via DisplayFormatter
+       e. Display output
+    4. Exit on 'quit'/'exit'
     """
-    Manually trigger reminder check.
-    Use this endpoint with an external cron service (like cron-job.org)
-    to ensure reminders are checked even when the server spins down.
-    """
-    try:
-        await reminder_checker.check_and_send_reminders()
-        return {"status": "success", "message": "Reminder check completed"}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
+    # Initialize skill wrappers (Constitution Principle III)
+    todo_manager = TodoManager()
+    cli_parser = CLIParser()
 
+    # Welcome message (Constitution Principle IV - User-Centric)
+    print(Messages.WELCOME)
+    print(Messages.HELP)
+    print()
 
-# Root endpoint
-@app.get("/")
-async def root():
-    """Root endpoint."""
-    return {
-        "message": f"Welcome to {settings.APP_NAME}",
-        "docs": "/docs",
-        "health": "/health"
-    }
+    # Main loop
+    while True:
+        try:
+            user_input = input(Messages.PROMPT)
+            parsed = cli_parser.parse(user_input)
+            command = parsed["command"]
+            args = parsed["args"]
 
+            if command == "add":
+                # Constitution Principle V: Validate before operation
+                try:
+                    ErrorValidator.validate_title(args["title"])
+                    task_id = todo_manager.add_task(args["title"], args["description"])
+                    task = {"id": task_id, "title": args["title"]}
+                    print(DisplayFormatter.format_task_added(task))
+                except ValueError as e:
+                    print(e)
 
-# Import and register routers
-from routes.auth import router as auth_router
-from routes.chat import router as chat_router
-from routes.tasks import router as tasks_router
+            elif command == "view":
+                tasks = todo_manager.get_all_tasks()
+                output = DisplayFormatter.format_tasks(tasks)
+                print(output)
 
-app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
-app.include_router(chat_router, prefix="/api", tags=["Chat"])
-app.include_router(tasks_router, prefix="/api/tasks", tags=["Tasks"])
+            elif command == "complete":
+                if args.get("error") == "no_id":
+                    print(f"❌ Error: {Messages.ERROR_NO_TASK_ID}")
+                    print(f"💡 Tip: {Messages.TIP_COMPLETE_FORMAT}")
+                elif args.get("error") == "invalid_id":
+                    print(f"❌ Error: {Messages.ERROR_INVALID_TASK_ID}")
+                    print(f"💡 Tip: {Messages.TIP_COMPLETE_FORMAT}")
+                else:
+                    try:
+                        task_id = args["id"]
+                        ErrorValidator.validate_task_id(
+                            task_id, todo_manager.get_all_tasks()
+                        )
+                        task = todo_manager.get_task(task_id)
+                        # Toggle: if complete, mark incomplete; if incomplete, mark complete
+                        new_status = not task["completed"]
+                        todo_manager.mark_complete(task_id, new_status)
+                        task["completed"] = new_status  # Update for display
+                        print(DisplayFormatter.format_task_completed(task))
+                    except ValueError as e:
+                        print(e)
+
+            elif command == "update":
+                if args.get("error") == "no_id":
+                    print(f"❌ Error: {Messages.ERROR_NO_TASK_ID}")
+                    print(f"💡 Tip: {Messages.TIP_UPDATE_FORMAT}")
+                elif args.get("error") == "no_content":
+                    print(f"❌ Error: {Messages.ERROR_NO_TITLE}")
+                    print(f"💡 Tip: {Messages.TIP_UPDATE_FORMAT}")
+                elif args.get("error") == "invalid_format":
+                    print(f"❌ Error: Invalid format.")
+                    print(f"💡 Tip: {Messages.TIP_UPDATE_FORMAT}")
+                else:
+                    try:
+                        task_id = args["id"]
+                        ErrorValidator.validate_task_id(
+                            task_id, todo_manager.get_all_tasks()
+                        )
+
+                        title = args.get("title")
+                        if title:
+                            ErrorValidator.validate_title(title)
+
+                        description = args.get("description")
+                        todo_manager.update_task(task_id, title, description)
+
+                        updated_task = todo_manager.get_task(task_id)
+                        print(DisplayFormatter.format_task_updated(updated_task))
+                    except ValueError as e:
+                        print(e)
+
+            elif command == "delete":
+                if args.get("error") == "no_id":
+                    print(f"❌ Error: {Messages.ERROR_NO_TASK_ID}")
+                    print(f"💡 Tip: {Messages.TIP_DELETE_FORMAT}")
+                elif args.get("error") == "invalid_id":
+                    print(f"❌ Error: {Messages.ERROR_INVALID_TASK_ID}")
+                    print(f"💡 Tip: {Messages.TIP_DELETE_FORMAT}")
+                else:
+                    try:
+                        task_id = args["id"]
+                        ErrorValidator.validate_task_id(
+                            task_id, todo_manager.get_all_tasks()
+                        )
+                        todo_manager.delete_task(task_id)
+                        print(DisplayFormatter.format_task_deleted(task_id))
+                    except ValueError as e:
+                        print(e)
+
+            elif command in ("quit", "exit"):
+                print(Messages.GOODBYE)
+                break
+
+            elif command == "empty":
+                # User pressed enter - show help
+                print(Messages.HELP)
+
+            elif command == "unknown":
+                print(f"❌ Error: {Messages.ERROR_UNKNOWN_COMMAND}")
+                print(f"💡 Tip: {Messages.TIP_AVAILABLE_COMMANDS}")
+
+            else:
+                # Command not implemented yet
+                print(f"❌ Error: Command '{command}' not implemented yet.")
+                print(f"💡 Tip: {Messages.TIP_AVAILABLE_COMMANDS}")
+
+        except KeyboardInterrupt:
+            print("\n" + Messages.GOODBYE)
+            break
+        except Exception as e:
+            print(f"❌ Unexpected error: {e}")
+            print(f"💡 Tip: {Messages.TIP_AVAILABLE_COMMANDS}")
 
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    main()

@@ -1,190 +1,206 @@
-# ObsidianList Frontend
+# Kubernetes Deployment Guide
 
-Premium dark-themed task management app built with Next.js and Tailwind CSS.
+Deploy the AI-Powered Todo Chatbot to a local Kubernetes cluster using Minikube.
 
-## Features
+## Prerequisites
 
-- **Landing Page**: Hero section with gradient text, How It Works cards, CTA, specs, footer
-- **Dashboard**: Task management with stats, filters, search, and sort
-- **Dark Theme**: Pure obsidian black (#000000) with violet accents (#8B5CF6)
-- **Responsive**: Mobile-first design with smooth animations
-- **Type-Safe**: Full TypeScript support
+| Tool | Version | Check |
+|------|---------|-------|
+| Docker Desktop | 4.53+ | `docker --version` |
+| Minikube | 1.32+ | `minikube version` |
+| kubectl | 1.28+ | `kubectl version --client` |
+| Helm | 3.x | `helm version` |
+| Go | 1.21+ | `go version` (for kubectl-ai) |
+| Python | 3.11+ | `python --version` (for kagent) |
 
-## Tech Stack
+## Quick Start
 
-- **Framework**: Next.js 14 (App Router)
-- **Styling**: Tailwind CSS with custom ObsidianList theme
-- **Language**: TypeScript
-- **State**: React useState + useMemo
-- **API Client**: Custom fetch wrapper with error handling
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 18+
-- npm or yarn
-
-### Installation
+### 1. Start Minikube
 
 ```bash
-cd frontend
-npm install
+minikube start --cpus=4 --memory=8192 --driver=docker
+minikube addons enable ingress
+minikube addons enable metrics-server
+minikube addons enable dashboard
 ```
 
-### Environment Setup
+### 2. Use Minikube Docker
 
 ```bash
-cp .env.example .env.local
+# Linux/macOS
+eval $(minikube docker-env)
+
+# Windows PowerShell
+minikube docker-env | Invoke-Expression
 ```
 
-Edit `.env.local`:
-```env
-NEXT_PUBLIC_API_URL=http://localhost:8000
-```
-
-### Development
+### 3. Build Images
 
 ```bash
-npm run dev
+docker build -t todo-backend:latest ./backend
+docker build -t todo-frontend:latest ./frontend
 ```
 
-App runs at `http://localhost:3000`
-
-### Production Build
+### 4. Deploy with Raw Manifests
 
 ```bash
-npm run build
-npm start
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/configmap.yaml
+
+# Create secrets (replace with your values)
+kubectl create secret generic todo-secrets \
+  --namespace=todo-chatbot \
+  --from-literal=DATABASE_URL="your-neon-url" \
+  --from-literal=JWT_SECRET="your-jwt-secret" \
+  --from-literal=OPENAI_API_KEY="your-openai-key" \
+  --from-literal=RESEND_API_KEY="your-resend-key" \
+  --from-literal=BETTER_AUTH_SECRET="your-auth-secret"
+
+kubectl apply -f k8s/backend-deployment.yaml
+kubectl apply -f k8s/backend-service.yaml
+kubectl apply -f k8s/frontend-deployment.yaml
+kubectl apply -f k8s/frontend-service.yaml
 ```
 
-## Project Structure
-
-```
-frontend/
-├── app/
-│   ├── globals.css         # Global styles + ObsidianList theme
-│   ├── layout.tsx          # Root layout with fonts
-│   ├── page.tsx            # Landing page
-│   ├── login/page.tsx      # Login page
-│   ├── signup/page.tsx     # Signup page
-│   └── dashboard/page.tsx  # Protected dashboard
-├── components/
-│   ├── landing/            # Landing page components
-│   │   ├── Hero.tsx        # Hero section with gradient text
-│   │   ├── HowItWorks.tsx  # 4-step process cards
-│   │   ├── SpecsSection.tsx # Features + mockup
-│   │   ├── CTASection.tsx  # Call to action
-│   │   └── Footer.tsx      # Site footer
-│   └── dashboard/          # Dashboard components
-│       ├── Sidebar.tsx     # Navigation + logout
-│       ├── TaskStats.tsx   # 3 stat cards
-│       ├── TaskFilters.tsx # Search/filter/sort
-│       ├── TaskList.tsx    # Task container
-│       ├── TaskCard.tsx    # Individual task
-│       ├── AddTaskModal.tsx # Add/edit form
-│       └── EmptyState.tsx  # No tasks message
-├── lib/
-│   └── api.ts              # API client
-├── middleware.ts           # Route protection
-├── tailwind.config.ts      # Custom theme
-├── package.json
-└── tsconfig.json
-```
-
-## Theme Colors
-
-| Color | Hex | Usage |
-|-------|-----|-------|
-| Black | #000000 | Base background |
-| Gray 900 | #0A0A0A | Card backgrounds |
-| Gray 700 | #2A2A2A | Borders |
-| Violet Primary | #8B5CF6 | Primary accent |
-| Violet Light | #A78BFA | Secondary accent |
-| Success | #10B981 | Completed/Low priority |
-| Warning | #F59E0B | Medium priority |
-| Danger | #EF4444 | High priority |
-
-## Components
-
-### Landing Page
-
-- **Hero**: Gradient "ObsidianList" text, cyberpunk grid background, CTA buttons
-- **HowItWorks**: 4 cards explaining the AI-powered workflow
-- **SpecsSection**: Feature list + dashboard mockup
-- **CTASection**: Large violet button with trust indicators
-- **Footer**: Navigation links + social icons
-
-### Dashboard
-
-- **Sidebar**: Collapsible navigation with user info and logout
-- **TaskStats**: 3 cards showing pending/completed/high-priority counts
-- **TaskFilters**: Search bar, priority/status dropdowns, sort options, tag pills
-- **TaskList**: Grid of TaskCards with empty state
-- **TaskCard**: Task display with checkbox, priority badge, tags, edit/delete
-- **AddTaskModal**: Form for creating/editing tasks with all fields
-
-## API Integration
-
-The frontend connects to the FastAPI backend via `/lib/api.ts`:
-
-```typescript
-// Auth
-authApi.signup(username, password)
-authApi.login(username, password)
-authApi.logout()
-authApi.me()
-
-// Tasks
-tasksApi.getAll()
-tasksApi.create({ title, description, priority, tags })
-tasksApi.update(id, { ... })
-tasksApi.delete(id)
-tasksApi.toggleComplete(id)
-
-// AI
-aiApi.createFromMessage(message)
-```
-
-## Customization
-
-### Adding New Colors
-
-Edit `tailwind.config.ts`:
-```typescript
-colors: {
-  obsidian: {
-    // Add new colors here
-    accent: "#YOUR_COLOR",
-  }
-}
-```
-
-### Modifying Animations
-
-Edit `app/globals.css`:
-```css
-@keyframes yourAnimation {
-  /* ... */
-}
-```
-
-## Deployment
-
-### Vercel (Recommended)
-
-1. Push to GitHub
-2. Import project in Vercel
-3. Set `NEXT_PUBLIC_API_URL` environment variable
-4. Deploy
-
-### Manual
+### 5. Deploy with Helm (Alternative)
 
 ```bash
-npm run build
-npm start
+helm install todo-chatbot ./helm/todo-chatbot-chart \
+  --values ./helm/todo-chatbot-chart/values-local.yaml \
+  --set secrets.databaseUrl="your-neon-url" \
+  --set secrets.jwtSecret="your-jwt-secret" \
+  --set secrets.openaiApiKey="your-openai-key" \
+  --set secrets.resendApiKey="your-resend-key" \
+  --set secrets.betterAuthSecret="your-auth-secret"
 ```
 
-## License
+### 6. Access Application
 
-MIT
+```bash
+minikube service frontend-service -n todo-chatbot
+```
+
+## Verification
+
+```bash
+kubectl get pods -n todo-chatbot          # All should be Running
+kubectl get svc -n todo-chatbot           # Services listed
+kubectl get deployments -n todo-chatbot   # 2/2 ready
+kubectl logs -l app=backend -n todo-chatbot  # No errors
+```
+
+## kubectl-ai Examples
+
+```bash
+kubectl-ai "show all pods in todo-chatbot namespace"
+kubectl-ai "scale backend to 3 replicas in todo-chatbot"
+kubectl-ai "show logs from backend pod in todo-chatbot"
+kubectl-ai "why is my backend pod failing"
+```
+
+## kagent Examples
+
+```bash
+kagent "analyze cluster health"
+kagent "optimize resources in todo-chatbot namespace"
+kagent "check security issues in todo-chatbot"
+```
+
+## Gordon Examples
+
+```bash
+docker ai "analyze my frontend Dockerfile and suggest optimizations"
+docker ai "how can I reduce my image size"
+docker ai "scan my image for security vulnerabilities"
+```
+
+## Helm Operations
+
+```bash
+helm list                           # List releases
+helm upgrade todo-chatbot ./helm/todo-chatbot-chart -f ./helm/todo-chatbot-chart/values-local.yaml
+helm rollback todo-chatbot          # Rollback to previous
+helm uninstall todo-chatbot         # Remove deployment
+```
+
+## Scaling
+
+```bash
+kubectl scale deployment backend --replicas=3 -n todo-chatbot
+kubectl scale deployment frontend --replicas=3 -n todo-chatbot
+# Or via kubectl-ai:
+kubectl-ai "scale backend to 3 replicas in todo-chatbot"
+```
+
+## Rolling Updates
+
+```bash
+# Rebuild image after code changes
+docker build -t todo-backend:latest ./backend
+kubectl rollout restart deployment/backend -n todo-chatbot
+kubectl rollout status deployment/backend -n todo-chatbot
+# Rollback if needed
+kubectl rollout undo deployment/backend -n todo-chatbot
+```
+
+## Resource Requirements
+
+| Component | CPU Request | CPU Limit | Memory Request | Memory Limit |
+|-----------|------------|-----------|----------------|--------------|
+| Backend | 250m | 500m | 256Mi | 512Mi |
+| Frontend | 250m | 500m | 256Mi | 512Mi |
+| **Local** | 100m | 250m | 128Mi | 256Mi |
+
+## Troubleshooting
+
+### ImagePullBackOff
+```bash
+kubectl describe pod <pod-name> -n todo-chatbot
+# Fix: Ensure Minikube Docker context is active
+eval $(minikube docker-env)  # then rebuild images
+```
+
+### CrashLoopBackOff
+```bash
+kubectl logs <pod-name> -n todo-chatbot
+# Check: env vars, DATABASE_URL, secret values
+```
+
+### Service Not Accessible
+```bash
+minikube service frontend-service -n todo-chatbot --url
+# Alternatively: kubectl port-forward svc/frontend-service 3000:3000 -n todo-chatbot
+```
+
+### Database Connection Fails
+```bash
+# Verify secret exists and is correct
+kubectl get secret todo-secrets -n todo-chatbot -o jsonpath='{.data.DATABASE_URL}' | base64 --decode
+# Recreate if wrong: delete and recreate the secret
+```
+
+### Out of Memory
+```bash
+kubectl top pods -n todo-chatbot
+# Increase limits in values-local.yaml or restart Minikube with more memory
+minikube start --memory=12288
+```
+
+## Architecture
+
+```
+                    ┌─────────────┐
+                    │  Minikube   │
+                    │  Cluster    │
+                    │             │
+   ┌────────────────┼─────────────┼────────────────┐
+   │  todo-chatbot  │  namespace  │                │
+   │                │             │                │
+   │  ┌──────────┐  │  ┌────────┐ │                │
+   │  │ Frontend │──┤──│Backend │─┤──► Neon DB     │
+   │  │ (Next.js)│  │  │(FastAPI)│ │   (External)  │
+   │  │ :3000    │  │  │ :8000  │ │                │
+   │  └──────────┘  │  └────────┘ │                │
+   │  LoadBalancer  │  ClusterIP  │                │
+   └────────────────┴─────────────┴────────────────┘
+```

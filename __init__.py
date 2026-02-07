@@ -1,13 +1,5 @@
-"""Utility modules."""
+"""Console Todo Application - Phase I
 
-from .validation import validate_email, validate_password, validate_name
-from .jwt import create_access_token, verify_token, get_user_id_from_token
-
-__all__ = [
-    "validate_email",
-    "validate_password",
-    "validate_name",
-    "create_access_token",
-    "verify_token",
-    "get_user_id_from_token",
-]
+Constitution Principle I: Spec-driven development only.
+Constitution Principle III: All business logic delegated to reusable skills.
+"""
